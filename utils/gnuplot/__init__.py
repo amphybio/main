@@ -1,8 +1,8 @@
 import readline, subprocess, tempfile
 
-def gnuplot(main_function, params, args, legends):
+def gnuplot(main_function, params, args, legends, plot_range=''):
     PLOT_CMD = ', '.join(['"{{data}}" using 1:{} title "{}"'.format(i+2, l) for i, l in enumerate(legends)])
-    PLOT_CMD = 'set style data lines; set title "{title}"; plot ' + PLOT_CMD
+    PLOT_CMD = 'set style data lines; set title "{title}"; plot ' + plot_range + ' ' + PLOT_CMD
     PLOT_TITLE = "Parameters:  " + "={}  ".join(params.split()) + "={}"
 
     with tempfile.NamedTemporaryFile(mode='w') as data:
