@@ -12,6 +12,10 @@ from sympy.printing.conventions import split_super_sub
 from sympy.printing.str import StrPrinter
 
 
+# Small greek letters to upper case latin letter(s) dictionary
+latin = ('A','B','G','D','E','Z','H','Th','I','K','L','M','N','X','O','P','R','S','T','Y','Ph','Kh','Ps','W')
+greek_to_latin = dict(zip(greeks, latin))
+
 sub_table = str.maketrans('aehijklmnoprstuvx0123456789+-=() ', 'ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ ')
 
 def subscript(text):
@@ -25,10 +29,6 @@ def subscript(text):
     else:
         return "_" + text
 
-# Small greek letters to upper case latin letter(s) dictionary
-latin = ('A', 'B', 'G', 'D', 'E', 'Z', 'H', 'Th', 'I', 'K', 'L', 'M', 'N', 'X', 'O', 'P', 'R', 'S', 'T', 'Y', 'Ph', 'Kh', 'Ps', 'W')
-greek_to_latin = dict(zip(greeks, latin))
-
 
 class GnuplotPrinter(C99CodePrinter):
     """
@@ -38,7 +38,7 @@ class GnuplotPrinter(C99CodePrinter):
         name, sup, sub = split_super_sub(expr.name) 
         return greek_to_latin.get(name, name)
 
-gplot = GnuplotPrinter().doprint
+gnuplot = GnuplotPrinter().doprint
 
 
 class MaplePrinter(StrPrinter):
