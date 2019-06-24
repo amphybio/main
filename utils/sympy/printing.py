@@ -34,9 +34,18 @@ class GnuplotPrinter(C99CodePrinter):
     """
     Print to gnuplot expression with simplified names.
     """
+    def _print_Function(self, expr):
+        if expr.func.__name__ == 'factorial':
+            return "gamma({} + 1)".format(expr.args[0])
+        else:
+            return super()._print_Function(expr)
+
+    def _print_Pow(self, expr):
+        return "({})**({})".format(self._print(expr.args[0]), self._print(expr.args[1]))
+
     def _print_Symbol(self, expr):
-        name, sup, sub = split_super_sub(expr.name) 
-        return greek_to_latin.get(name, name)
+        name, sup, sub = split_super_sub(expr.name)
+        return '_'.join((greek_to_latin.get(name, name), *sub))
 
 gnuplot = GnuplotPrinter().doprint
 
@@ -46,7 +55,7 @@ class MaplePrinter(StrPrinter):
     Print to Maple code.
     """
     def _print_Symbol(self, expr):
-       name, sup, sub = split_super_sub(expr.name) 
+       name, sup, sub = split_super_sub(expr.name)
        return '__'.join([name] + sub)
 
 maple = MaplePrinter().doprint
@@ -57,7 +66,7 @@ class OfficePrinter(StrPrinter):
     Print to LibreOffice Math markup language.
     """
     def _print_Symbol(self, expr):
-        name, sup, sub = split_super_sub(expr.name) 
+        name, sup, sub = split_super_sub(expr.name)
         if name == 'lamda':
             name = 'lambda'
         if name.lower() in greeks:
