@@ -1,4 +1,4 @@
-# Main AmPhyBio repository
+# Main AmPhyBio repository and [wiki](https://github.com/amphybio/main/wiki)
 General purpose code, scripts, templates, references, tutorials, and so on...
 
 This repository is meant to centralize **reusable tools and, the most important, knowledge**. Anyone in the group can contribute without asking for permission. It contains code, documents and [the wiki](https://github.com/amphybio/main/wiki).
