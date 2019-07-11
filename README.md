@@ -1,2 +1,23 @@
-# main
-General purpose projects, codes, templates, scripts, and so on...
+# Main AmPhyBio repository
+General purpose code, scripts, templates, references, tutorials, and so on...
+
+This repository is meant to centralize **reusable tools and, the most important, knowledge**. Anyone in the group can contribute without asking for permission. It contains code, documents and [the wiki](https://github.com/amphybio/main/wiki).
+
+## Contributing
+Contributing is as simple as [uploading a file](https://help.github.com/en/articles/adding-a-file-to-a-repository) or [creating/editing a wiki page](https://help.github.com/en/articles/adding-or-editing-wiki-pages).
+
+Don't know how to format or where to put things? Don't worry: **write it down now** and organize later. The repository and the wiki will always be a work in progress and, therefore, incomplete and imperfect by nature. Here are some recommendations by type of contribution:
+
+### Code
+- Add some information about new files to the directory's README document. If it doesn't exist yet, you can create it.
+- **Insert comments in the code** explaining how it works and how it should be used.
+- If a program has external dependencies or needs specific compilation flags, include this information in the comments.
+- Though not strictly necessary, it is good practice to follow common [coding conventions](https://en.wikipedia.org/wiki/Coding_conventions).
+
+### Documents
+- Add a link to the document in the appropriate wiki page (creating it if necessary).
+- Be judicious when uploading big files (>1MB) as they can significantly slow down a `git clone` operation.
+
+### Wiki
+- Always add references to the original sources of information to the page footer.
+- Should you include an image in the text, use online images or follow [these instructions](https://github.com/amphybio/main/wiki/Adding-images-to-a-wiki-page).
