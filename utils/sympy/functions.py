@@ -37,8 +37,11 @@ class pochhammer(Function):
     """
     @classmethod
     def eval(cls, x, n):
-        if n.is_integer:
-            return prod((x + i for i in range(n)))
+        # n.is_integer fails for exact floats
+        if n.is_real:
+            int_n = int(n)
+            if n == int_n:
+                return prod((x + i for i in range(int_n)))
     def _pretty(self, printer):
         p = printer.doprint
         return prettyForm("({}){}".format(p(self.args[0]), subscript(p(self.args[1]))))
