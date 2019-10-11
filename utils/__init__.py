@@ -2,9 +2,18 @@
 # vim: fileencoding=utf-8
 # authors: Leonardo Gama (03/10/2019)
 
+"""
+Gerenal programming utilities.
+"""
+
+__all__ = ['decorator_with_options', 'memoize']
+
 import inspect
 import os
 import shelve
+from functools import partial, wraps
+from collections.abc import Sequence
+
 try:
     import pip._internal as pip
 except:
@@ -12,9 +21,51 @@ except:
 from pip.utils.appdirs import user_cache_dir
 
 
-# Memoization decorator.
-CACHE_DIR = user_cache_dir('amphybio')
-os.makedirs(CACHE_DIR, exist_ok=True)
+def decorator_with_options(decorator):
+    """Make a decorator usable with or without arguments.
+
+    As an example, a decorator created like:
+
+        @decorator_with_options
+        def my_decorator(func, *, opt1=None, opt2=None):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                # do stuff with func, opt1, opt2...
+            return wrapper
+
+    can be used in any of the following forms.
+
+        @my_decorator
+        def f():
+            pass
+
+        @my_decorator()
+        def f():
+            pass
+
+        @my_decorator(opt1='something')
+        def f():
+            pass
+
+    But this use form without the keyword raises an error, as expected:
+
+        @my_decorator('something')
+        def f():
+            pass
+
+    Warning: the first optional parameter shall not be a callable.
+    """
+    @wraps(decorator)
+    def wrapper(func=None, *varargs, **kwargs):
+        if func is None:
+            return partial(decorator, **kwargs)
+        elif callable(func):
+            return decorator(func, **kwargs)
+        else:
+            errmsg = "{}() takes 0 positional arguments but {} {} given"
+            raise TypeError(errmsg.format(decorator.__name__, 1 + len(varargs), "were" if varargs else "was"))
+    return wrapper
+
 
 def _normalize_type(obj):
     if isinstance(obj, Container):
