@@ -98,8 +98,6 @@ def _normalize_type(obj):
 
 
 # Memoization decorator.
-HASH_BITS = 16  # hash length in hexadecimal will be HASH_BITS/4
-HASH_MASK = 2**HASH_BITS - 1
 CACHE_DIR = user_cache_dir('amphybio')
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -113,6 +111,8 @@ def memoized(func, *, loc=CACHE_DIR, match_type=True, ignore=None):
         different types as different arguments lists
     :ignore: name or list of names of parameters to ignore in caching mechanism
     :returns: a memoized version of function 'func'
+
+    Warning: doesn't work for multithreaded or multiprocess uses.
     """
     func.id = "{}.{:0>4s}.cache".format(func.__qualname__, hashlib.md5(func.__code__.co_code).hexdigest()[-4:])
     func.cache_path = os.path.join(loc, func.id)
@@ -122,6 +122,7 @@ def memoized(func, *, loc=CACHE_DIR, match_type=True, ignore=None):
         ignore = {ignore} if isinstance(ignore, str) else set(ignore)
     func.ignore = ignore
 
+    @wraps(func)
     def wrapper(*args, **kwargs):
         key = kwargs.copy()
         key.update(zip(arg_names, args))
