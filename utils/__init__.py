@@ -8,6 +8,7 @@ Gerenal programming utilities.
 
 __all__ = ['decorator_with_options', 'memoized']
 
+import hashlib
 import inspect
 import os
 import shelve
@@ -113,13 +114,13 @@ def memoized(func, *, loc=CACHE_DIR, match_type=True, ignore=None):
     :ignore: name or list of names of parameters to ignore in caching mechanism
     :returns: a memoized version of function 'func'
     """
-    func.id = "{}.{:04x}".format(func.__qualname__, hash(func.__code__.co_code) & HASH_MASK)
+    func.id = "{}.{:0>4s}.cache".format(func.__qualname__, hashlib.md5(func.__code__.co_code).hexdigest()[-4:])
     func.cache_path = os.path.join(loc, func.id)
 
-    func.ignore = ignore
     arg_names = inspect.getfullargspec(func).args
     if ignore is not None:
         ignore = {ignore} if isinstance(ignore, str) else set(ignore)
+    func.ignore = ignore
 
     def wrapper(*args, **kwargs):
         key = kwargs.copy()
@@ -130,12 +131,13 @@ def memoized(func, *, loc=CACHE_DIR, match_type=True, ignore=None):
             key = {k: _normalize_type(v) for k, v in key.items()}
         key = repr(sorted((k, v) for k, v in key.items()))
 
-        with shelve.open(func.cache_path) as db:
-            try:
+        try:
+            with shelve.open(func.cache_path) as db:
                 return db[key]
-            except KeyError:
-                val = func(*args, **kwargs)
+        except KeyError:
+            val = func(*args, **kwargs)
+            with shelve.open(func.cache_path) as db:
                 db[key] = val
-                return val
+            return val
 
     return wrapper
