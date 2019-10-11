@@ -6,7 +6,7 @@
 Gerenal programming utilities.
 """
 
-__all__ = ['decorator_with_options', 'memoize']
+__all__ = ['decorator_with_options', 'memoized']
 
 import inspect
 import os
@@ -68,39 +68,67 @@ def decorator_with_options(decorator):
 
 
 def _normalize_type(obj):
-    if isinstance(obj, Container):
-        return tuple(_normalize_type(o) for o in obj)
+    """Convert a sequence (of sequences) of numeric and other hashable
+    objects to an unequivocal and hashable form.
+
+    Be f this function, normalize numeric and list-like types in such way that:
+        f(1) == f(1.0) == f(1+0j)
+        f([1, 2]) == f((1, 2))
+        f(1) == f([1])
+
+    As a consequence, it converts sympy and numpy numbers and arrays to native
+    Python types.
+
+    :obj: any object
+    :returns: (tuple of [tuples of]) objects, with numbers coerced to complex
+    """
+    if isinstance(obj, str):
+        return obj
+    elif isinstance(obj, Sequence):
+        if len(obj) == 1:
+            return _normalize_type(next(iter(obj)))
+        else:
+            return tuple(_normalize_type(o) for o in obj)
     else:
         try:
             return complex(obj)
-        except:
+        except TypeError:
             return obj
 
-HASH_MASK = 2**16 - 1  # hash length in hexadecimal will be n/4
-def memoize(func, *, loc=CACHE_DIR, match_type=True, ignore=None):
-    """Persistent memoization function decorators.
 
-    :returns: TODO
+# Memoization decorator.
+HASH_BITS = 16  # hash length in hexadecimal will be HASH_BITS/4
+HASH_MASK = 2**HASH_BITS - 1
+CACHE_DIR = user_cache_dir('amphybio')
+os.makedirs(CACHE_DIR, exist_ok=True)
 
+@decorator_with_options
+def memoized(func, *, loc=CACHE_DIR, match_type=True, ignore=None):
+    """Persistent memoization function decorator.
+
+    :func: a callable object that is not a method
+    :loc: location (directory path) of persistent cache files
+    :match_type: wheter to consider lists of identically valued arguments of
+        different types as different arguments lists
+    :ignore: name or list of names of parameters to ignore in caching mechanism
+    :returns: a memoized version of function 'func'
     """
     func.id = "{}.{:04x}".format(func.__qualname__, hash(func.__code__.co_code) & HASH_MASK)
-    func.cache_path = os.path.join(loc, func_id)
-    func.match_type = match_type
-    #TODO: need to set as attribute? or wrapped functions can access local variables of wrapper?
+    func.cache_path = os.path.join(loc, func.id)
+
+    func.ignore = ignore
     arg_names = inspect.getfullargspec(func).args
     if ignore is not None:
         ignore = {ignore} if isinstance(ignore, str) else set(ignore)
 
     def wrapper(*args, **kwargs):
-        kwargs.update(zip(arg_names, args))
-
+        key = kwargs.copy()
+        key.update(zip(arg_names, args))
         if ignore is not None:
-            args = [args[arg_names.index(a)] for a in arg_names if a not in ignore]
-            kwargs = {k: v for k, v in kwargs.items() if k not in ignore}
-        if not func.match_type:
-            args = _normalize_type(args)
-            kwargs = {k: _normalize_type(v) for k, v in kwargs.items()}
-        key = repr(args) + repr(sorted((k, v) for k, v in kwargs.items()))
+            key = {k: v for k, v in key.items() if k not in ignore}
+        if not match_type:
+            key = {k: _normalize_type(v) for k, v in key.items()}
+        key = repr(sorted((k, v) for k, v in key.items()))
 
         with shelve.open(func.cache_path) as db:
             try:
