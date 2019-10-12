@@ -32,7 +32,7 @@ def decorator_with_options(decorator):
 
         @decorator_with_options
         def my_decorator(func, *, opt1=None, opt2=None):
-            @wraps(func)
+            @functools.wraps(func)
             def wrapper(*args, **kwargs):
                 # do stuff with func, opt1, opt2...
             return wrapper
