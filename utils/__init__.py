@@ -8,10 +8,12 @@ Gerenal programming utilities.
 
 __all__ = ['decorator_with_options', 'memoized']
 
+import atexit
+import diskcache
 import hashlib
 import inspect
 import os
-import shelve
+from math import ceil, exp, floor, log, log2, log10, sqrt
 from functools import partial, wraps
 from collections.abc import Sequence
 
@@ -102,43 +104,47 @@ CACHE_DIR = user_cache_dir('amphybio')
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 @decorator_with_options
-def memoized(func, *, loc=CACHE_DIR, match_type=True, ignore=None):
-    """Persistent memoization function decorator.
+def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', cache_dir=CACHE_DIR,
+             strict_arg_types=True, ignore_args=None):
+    """Persistent memoization function decorator with argument normalization and ignore list.
 
     :func: a callable object that is not a method
-    :loc: location (directory path) of persistent cache files
-    :match_type: wheter to consider lists of identically valued arguments of
-        different types as different arguments lists
-    :ignore: name or list of names of parameters to ignore in caching mechanism
+    :size_limit: (int, in bytes) approximate size limit of cache - default 100 MB
+    :eviction_policy: rule to evict cache if size_limit is reached, any of
+        diskcache.EVICTION_POLICY
+    :strict_arg_types: wheter to consider lists of identically valued arguments
+        of different types as different arguments lists
+    :cache_dir: location (directory path) of persistent cache files
+    :ignore_args: name or list of names of parameters to ignore
     :returns: a memoized version of function 'func'
-
-    Warning: doesn't work for multithreaded or multiprocess uses.
     """
-    func.id = "{}.{:0>4s}.cache".format(func.__qualname__, hashlib.md5(func.__code__.co_code).hexdigest()[-4:])
-    func.cache_path = os.path.join(loc, func.id)
+    func_id = "{}.{:0>4s}".format(func.__qualname__, hashlib.md5(func.__code__.co_code).hexdigest()[-4:])
+    func.cache_dir = os.path.join(cache_dir, func_id)
+    func.cache = diskcache.Cache(func.cache_dir, size_limit=size_limit, eviction_policy=eviction_policy)
+    atexit.register(lambda: func.cache.close())
 
     arg_names = inspect.getfullargspec(func).args
-    if ignore is not None:
-        ignore = {ignore} if isinstance(ignore, str) else set(ignore)
-    func.ignore = ignore
+    func.ignore_args = frozenset(ignore_args) if ignore_args else None
 
     @wraps(func)
     def wrapper(*args, **kwargs):
         key = kwargs.copy()
         key.update(zip(arg_names, args))
-        if ignore is not None:
-            key = {k: v for k, v in key.items() if k not in ignore}
-        if not match_type:
+        if ignore_args is not None:
+            key = {k: v for k, v in key.items() if k not in ignore_args}
+        if not strict_arg_types:
             key = {k: _normalize_type(v) for k, v in key.items()}
-        key = repr(sorted((k, v) for k, v in key.items()))
+        key = tuple(sorted((k, v) for k, v in key.items()))
+        try:
+            hash(key)
+        except TypeError:
+            key = repr(key)
 
         try:
-            with shelve.open(func.cache_path) as db:
-                return db[key]
+            return func.cache[key]
         except KeyError:
             val = func(*args, **kwargs)
-            with shelve.open(func.cache_path) as db:
-                db[key] = val
+            func.cache[key] = val
             return val
 
     return wrapper
