@@ -12,6 +12,7 @@ import atexit
 import diskcache
 import hashlib
 import inspect
+import numpy as np
 import os
 from math import ceil, exp, floor, log, log2, log10, sqrt
 from functools import partial, wraps
@@ -148,3 +149,27 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
             return val
 
     return wrapper
+
+
+def plot_points(xmin, xmax, min_points, logspace=False):
+    """Generate stable points in range [xmin:xmax]"""
+    if not logspace and xmin < 0:
+        raise ValueError("xmin must be >= 0")
+    if logspace and xmin < 1:
+        raise ValueError("xmin must be >= 1 in logspace")
+
+    range_func = np.logspace if logspace else np.linspace
+
+    if logspace:
+        xmin, xmax = log10(xmin), log10(xmax)
+    bound = 2**ceil(log2(xmax))
+    # discount the 3 extra points: xmin, xmax and 1 added to 2**n
+    min_points = min_points*bound/(xmax - xmin) - 3
+    n_points = 2**ceil(log2(min_points)) + 1
+    points = range_func(0, bound, n_points)
+    if logspace:
+        xmin, xmax = 10**xmin, 10**xmax
+    points = [x for x in points if xmin < x < xmax]
+    points.insert(0, xmin)
+    points.append(xmax)
+    return points
