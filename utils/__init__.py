@@ -6,7 +6,7 @@
 Gerenal programming utilities.
 """
 
-__all__ = ['decorator_with_options', 'memoized']
+__all__ = ['decorator_with_options', 'memoized', 'plot_points']
 
 import atexit
 import diskcache
