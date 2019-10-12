@@ -37,13 +37,6 @@ class pochhammer(Function):
     """
     @classmethod
     def eval(cls, x, n):
-<<<<<<< HEAD
-        # n.is_integer fails for exact floats
-        if n.is_real:
-            int_n = int(n)
-            if n == int_n:
-                return prod((x + i for i in range(int_n)))
-=======
         # As of SymPy version 1.4, Float.is_integer == Float.is_zero
         try:
             if float(n).is_integer():
@@ -52,7 +45,6 @@ class pochhammer(Function):
                 raise NotImplementedError("'n' in pochhammer symbol must be an integer")
         except TypeError:
             pass
->>>>>>> utils.sympy: better solution for integer value test
     def _pretty(self, printer):
         p = printer.doprint
         return prettyForm("({}){}".format(p(self.args[0]), subscript(p(self.args[1]))))
