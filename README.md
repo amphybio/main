@@ -20,4 +20,4 @@ Don't know how to format or where to put things? Don't worry: **write it down no
 
 ### Wiki
 - Always add references to the original sources of information to the page footer.
-- Should you include an image in the text, use online images or follow [these instructions](https://github.com/amphybio/main/wiki/Adding-images-to-a-wiki-page).
+- Should you include an image in the text, use online images or follow [these instructions](https://github.com/amphybio/main/wiki/Adding-images-in-a-wiki-page).
