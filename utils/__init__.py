@@ -28,7 +28,7 @@ from pip.utils.appdirs import user_cache_dir
 def decorator_with_options(decorator):
     """Make a decorator usable with or without arguments.
 
-    As an example, a decorator created like:
+    As an example, a decorator created like this:
 
         @decorator_with_options
         def my_decorator(func, *, opt1=None, opt2=None):
