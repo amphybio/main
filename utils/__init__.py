@@ -119,8 +119,8 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
     :returns: a memoized version of function 'func'
     """
     func_id = "{}.{:0>4s}".format(func.__qualname__, hashlib.md5(func.__code__.co_code).hexdigest()[-4:])
-    func.cache_dir = os.path.join(cache_dir, func_id)
-    func.cache = diskcache.Cache(func.cache_dir, size_limit=size_limit, eviction_policy=eviction_policy)
+    cache_dir = os.path.join(cache_dir, func_id)
+    func.cache = diskcache.Cache(cache_dir, size_limit=size_limit, eviction_policy=eviction_policy)
     atexit.register(lambda: func.cache.close())
 
     arg_names = inspect.getfullargspec(func).args
