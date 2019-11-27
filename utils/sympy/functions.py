@@ -5,10 +5,14 @@
 Special mathematical functions.
 """
 
-from sympy import Function, hyper, prod
+from sympy import Function, hyper, log, prod
 from sympy.printing.pretty.stringpict import prettyForm
 
 from .printing import subscript
+
+
+def log2(x):
+    return log(x, 2)
 
 
 class KummerM(hyper):

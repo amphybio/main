@@ -105,15 +105,15 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 
 @decorator_with_options
 def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', cache_dir=CACHE_DIR,
-             strict_arg_types=True, ignore_args=None):
+             typed=False, ignore_args=None):
     """Persistent memoization function decorator with argument normalization and ignore list.
 
     :func: a callable object that is not a method
     :size_limit: (int, in bytes) approximate size limit of cache - default 100 MB
     :eviction_policy: rule to evict cache if size_limit is reached, any of
         diskcache.EVICTION_POLICY
-    :strict_arg_types: wheter to consider lists of identically valued arguments
-        of different types as different arguments lists
+    :typed: wheter to consider lists of identically valued arguments of different types as
+        different arguments lists
     :cache_dir: location (directory path) of persistent cache files
     :ignore_args: name or list of names of parameters to ignore
     :returns: a memoized version of function 'func'
@@ -132,7 +132,7 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
         key.update(zip(arg_names, args))
         if ignore_args is not None:
             key = {k: v for k, v in key.items() if k not in ignore_args}
-        if not strict_arg_types:
+        if not typed:
             key = {k: _normalize_type(v) for k, v in key.items()}
         key = tuple(sorted((k, v) for k, v in key.items()))
         try:
@@ -152,14 +152,14 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
 
 def plot_points(xmin, xmax, min_points, logspace=False):
     """Generate stable points in range [xmin:xmax]"""
-    if not logspace and xmin < 0:
+    if xmin < 0:
         raise ValueError("xmin must be >= 0")
-    if logspace and xmin < 1:
-        raise ValueError("xmin must be >= 1 in logspace")
 
     range_func = np.logspace if logspace else np.linspace
 
     if logspace:
+        xmin += 1  # shift by one
+        xmax += 1
         xmin, xmax = log10(xmin), log10(xmax)
     bound = 2**ceil(log2(xmax))
     # discount the 3 extra points: xmin, xmax and 1 added to 2**n
@@ -171,4 +171,7 @@ def plot_points(xmin, xmax, min_points, logspace=False):
     points = [x for x in points if xmin < x < xmax]
     points.insert(0, xmin)
     points.append(xmax)
+    points = np.array(points)
+    if logspace:
+        points -= 1  # shift back
     return points
