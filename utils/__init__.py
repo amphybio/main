@@ -19,10 +19,9 @@ from functools import partial, wraps
 from collections.abc import Sequence
 
 try:
-    import pip._internal as pip
+    from pip.utils.appdirs import user_cache_dir
 except:
-    import pip
-from pip.utils.appdirs import user_cache_dir
+    from pip._internal.utils.appdirs import user_cache_dir
 
 
 def decorator_with_options(decorator):
