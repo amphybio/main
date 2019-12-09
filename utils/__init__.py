@@ -12,9 +12,10 @@ import atexit
 import diskcache
 import hashlib
 import inspect
+import logging
 import numpy as np
 import os
-from math import ceil, exp, floor, log, log2, log10, sqrt
+from math import ceil, log2, log10
 from functools import partial, wraps
 from collections.abc import Sequence
 
@@ -72,7 +73,7 @@ def decorator_with_options(decorator):
 
 def _normalize_type(obj):
     """Convert a sequence (of sequences) of numeric and other hashable
-    objects to an unequivocal and hashable form.
+    objects, plus dictionaries, to an unequivocal and hashable form.
 
     Be f this function, normalize numeric and list-like types in such way that:
         f(1) == f(1.0) == f(1+0j)
@@ -85,8 +86,10 @@ def _normalize_type(obj):
     :obj: any object
     :returns: (tuple of [tuples of]) objects, with numbers coerced to complex
     """
-    if isinstance(obj, str):
+    if isinstance(obj, (bool, str)):
         return obj
+    if isinstance(obj, dict):
+        return {_normalize_type(k): _normalize_type(v) for k, v in sorted(obj.items())}
     elif isinstance(obj, Sequence):
         if len(obj) == 1:
             return _normalize_type(next(iter(obj)))
@@ -121,7 +124,7 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
     func_id = "{}.{:0>4s}".format(func.__qualname__, hashlib.md5(func.__code__.co_code).hexdigest()[-4:])
     cache_dir = os.path.join(cache_dir, func_id)
     func.cache = diskcache.Cache(cache_dir, size_limit=size_limit, eviction_policy=eviction_policy)
-    atexit.register(lambda: func.cache.close())
+    atexit.register(func.cache.close)
 
     arg_names = inspect.getfullargspec(func).args
     func.ignore_args = frozenset(ignore_args) if ignore_args else None
@@ -134,15 +137,12 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
             key = {k: v for k, v in key.items() if k not in ignore_args}
         if not typed:
             key = {k: _normalize_type(v) for k, v in key.items()}
-        key = tuple(sorted((k, v) for k, v in key.items()))
-        try:
-            hash(key)
-        except TypeError:
-            key = repr(key)
+        key = dict(sorted(key.items()))
 
         try:
             return func.cache[key]
         except KeyError:
+            logging.debug("Cache miss on key %s", repr(key))
             val = func(*args, **kwargs)
             func.cache[key] = val
             return val
