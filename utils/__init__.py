@@ -13,6 +13,7 @@ import diskcache
 import hashlib
 import inspect
 import logging
+import pickle
 import numpy as np
 import os
 from math import ceil, log2, log10
@@ -148,6 +149,19 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
             return val
 
     return wrapper
+
+def dump_cache(func, file_path='/tmp/{__qualname__}.cache.pkl'):
+    file_path = file_path.format(__qualname__=func.__qualname__)
+    cache = [(k, func.cache[k]) for k in func.cache]
+    with open(file_path, mode='wb') as file:
+        pickle.dump(cache, file)
+
+def load_cache(func, file_path='/tmp/{__qualname__}.cache.pkl'):
+    file_path = file_path.format(__qualname__=func.__qualname__)
+    with open(file_path, mode='rb') as file:
+        cache = pickle.load(file)
+    for key, value in cache:
+        func.cache[_normalize_type(key)] = value
 
 
 def plot_points(xmin, xmax, min_points, logspace=False):
