@@ -72,33 +72,39 @@ def decorator_with_options(decorator):
     return wrapper
 
 
-def _normalize_type(obj):
+def _normalize_type(obj, round_digits=15):
     """Convert a sequence (of sequences) of numeric and other hashable
-    objects, plus dictionaries, to an unequivocal and hashable form.
+    objects, plus dictionaries, to a canonical form.
 
     Be f this function, normalize numeric and list-like types in such way that:
-        f(1) == f(1.0) == f(1+0j)
+        f(1) == f(1.0) == f(0.9999999999999999) == f(1+0j) != f(True)
         f([1, 2]) == f((1, 2))
         f(1) == f([1])
 
     As a consequence, it converts sympy and numpy numbers and arrays to native
-    Python types.
+    Python types.  Numbers are rounded at the least significant floating-point
+    decimal digit to avoid cache misses due to imprecision in floats generated
+    by functions like range and np.linspace.
 
     :obj: any object
-    :returns: (tuple of [tuples of]) objects, with numbers coerced to complex
+    :round_digits: number of digits to round to, pass False to disable rounding
+    :returns: 'obj' with inner elements coerced (numeric -> complex, sequence -> tuple)
     """
     if isinstance(obj, (bool, str)):
         return obj
     if isinstance(obj, dict):
-        return {_normalize_type(k): _normalize_type(v) for k, v in sorted(obj.items())}
-    elif isinstance(obj, Sequence):
+        return tuple((_normalize_type(k), _normalize_type(v)) for k, v in obj.items())
+    elif isinstance(obj, Sequence) or isinstance(obj, np.ndarray) and obj.ndim == 1:
         if len(obj) == 1:
             return _normalize_type(next(iter(obj)))
         else:
             return tuple(_normalize_type(o) for o in obj)
     else:
         try:
-            return complex(obj)
+            num = complex(obj)
+            if not round_digits is False:
+                num = complex(round(num.real, round_digits), round(num.imag, round_digits))
+            return num
         except TypeError:
             return obj
 
@@ -109,7 +115,7 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 
 @decorator_with_options
 def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', cache_dir=CACHE_DIR,
-             typed=False, ignore_args=None):
+             typed=False, round_digits=15, ignore_args=None):
     """Persistent memoization function decorator with argument normalization and ignore list.
 
     :func: a callable object that is not a method
@@ -137,7 +143,7 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
         if ignore_args is not None:
             key = {k: v for k, v in key.items() if k not in ignore_args}
         if not typed:
-            key = {k: _normalize_type(v) for k, v in key.items()}
+            key = {k: _normalize_type(v, round_digits) for k, v in key.items()}
         key = dict(sorted(key.items()))
 
         try:
