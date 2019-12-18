@@ -167,7 +167,7 @@ def load_cache(func, file_path='/tmp/{__qualname__}.cache.pkl'):
     with open(file_path, mode='rb') as file:
         cache = pickle.load(file)
     for key, value in cache:
-        func.cache[_normalize_type(key)] = value
+        func.cache[dict(sorted(key.items()))] = value
 
 
 def plot_points(xmin, xmax, min_points, logspace=False):
