@@ -173,6 +173,9 @@ def load_cache(func, file_path='/tmp/{__qualname__}.cache.pkl'):
 
 def plot_points(xmin, xmax, min_points, logspace=False):
     """Generate stable points in range [xmin:xmax]"""
+    reverse = xmax < xmin
+    if reverse:
+        xmin, xmax = xmax, xmin
     if xmin < 0:
         raise ValueError("xmin must be >= 0")
 
@@ -195,4 +198,6 @@ def plot_points(xmin, xmax, min_points, logspace=False):
     points = np.array(points)
     if logspace:
         points -= 1  # shift back
+    if reverse:
+        points = points[::-1]
     return points
