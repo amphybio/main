@@ -16,9 +16,10 @@ import logging
 import pickle
 import numpy as np
 import os
+from collections import abc
+from multiprocessing import pool
 from math import ceil, log2, log10
 from functools import partial, wraps
-from collections.abc import Sequence
 
 try:
     from pip._internal.utils.appdirs import user_cache_dir
@@ -94,7 +95,7 @@ def _normalize_type(obj, round_digits=15):
         return obj
     if isinstance(obj, dict):
         return tuple((_normalize_type(k), _normalize_type(v)) for k, v in obj.items())
-    elif isinstance(obj, Sequence) or isinstance(obj, np.ndarray) and obj.ndim == 1:
+    elif isinstance(obj, abc.Sequence) or isinstance(obj, np.ndarray) and obj.ndim == 1:
         if len(obj) == 1:
             return _normalize_type(next(iter(obj)))
         else:
@@ -128,13 +129,29 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
     :ignore_args: name or list of names of parameters to ignore
     :returns: a memoized version of function 'func'
     """
-    func_id = "{}.{:0>4s}".format(func.__qualname__, hashlib.md5(func.__code__.co_code).hexdigest()[-4:])
+    func_hash = hashlib.md5(func.__code__.co_code).hexdigest()
+    func_id = "{}.{:0>4s}".format(func.__qualname__, func_hash[-4:])
     cache_dir = os.path.join(cache_dir, func_id)
     func.cache = diskcache.Cache(cache_dir, size_limit=size_limit, eviction_policy=eviction_policy)
+    func.async_results = {}
+
     atexit.register(func.cache.close)
 
+    @atexit.register
+    def consolidate_async():
+        for key, result in func.async_results.items():
+            try:
+                if result.successful():
+                    func.cache[dict(sorted(key))] = result.get()
+            # Exception class changed in Python 3.7:
+            # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.pool.AsyncResult.successful
+            except (AssertionError, ValueError):
+                pass
+
     arg_names = inspect.getfullargspec(func).args
-    func.ignore_args = frozenset(ignore_args) if ignore_args else None
+    if ignore_args is not None:
+        ignore_args = frozenset([ignore_args] if isinstance(ignore_args, str) else ignore_args)
+        assert all(arg in arg_names for arg in ignore_args), "Unknown argument name passed to 'ignore_args' option."
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -149,10 +166,16 @@ def memoized(func, *, size_limit=10**8, eviction_policy='least-recently-used', c
         try:
             return func.cache[key]
         except KeyError:
-            logging.debug("Cache miss on key %s", repr(key))
-            val = func(*args, **kwargs)
-            func.cache[key] = val
-            return val
+            try:
+                return func.async_results[tuple(key.items())]
+            except KeyError:
+                logging.debug("%s: cache miss on key %s", wrapper.__qualname__, repr(key))
+                value = func(*args, **kwargs)
+                if isinstance(value, pool.AsyncResult):
+                    func.async_results[tuple(key.items())] = value
+                else:
+                    func.cache[key] = value
+                return value
 
     return wrapper
 
@@ -173,7 +196,7 @@ def load_cache(func, file_path='/tmp/{__qualname__}.cache.pkl'):
 
 def plot_points(xmin, xmax, min_points, logspace=False):
     """Generate stable points in range [xmin:xmax]"""
-    reverse = xmax < xmin
+    reverse = xmin > xmax
     if reverse:
         xmin, xmax = xmax, xmin
     if xmin < 0:
@@ -187,8 +210,8 @@ def plot_points(xmin, xmax, min_points, logspace=False):
         xmin, xmax = log10(xmin), log10(xmax)
     bound = 2**ceil(log2(xmax))
     # discount the 3 extra points: xmin, xmax and 1 added to 2**n
-    min_points = min_points*bound/(xmax - xmin) - 3
-    n_points = 2**ceil(log2(min_points)) + 1
+    range_points = min_points*bound/(xmax - xmin) - 3
+    n_points = 2**ceil(log2(range_points)) + 1
     points = range_func(0, bound, n_points)
     if logspace:
         xmin, xmax = 10**xmin, 10**xmax
@@ -199,5 +222,10 @@ def plot_points(xmin, xmax, min_points, logspace=False):
     if logspace:
         points -= 1  # shift back
     if reverse:
+        xmin, xmax = xmax, xmin
         points = points[::-1]
+
+    # Fix off by one in edge cases.
+    if len(points) < min_points:
+        return plot_points(xmin, xmax, min_points + 1, logspace)
     return points
