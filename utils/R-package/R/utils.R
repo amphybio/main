@@ -84,6 +84,10 @@ stat_matrix <- function(DATA, FUN, X=NULL, Y=NULL, ...) {
             res[[x]][[y]] <- FUN(DATA[, x], DATA[, y], ...)
         }
     }
+
+    # Mark as data.frame.
+    class(res) <- 'data.frame'
+    rownames(res) <- names(res[[1L]])
     res
 }
 
@@ -98,13 +102,34 @@ get_table <- function(results_list, ...) {
     what <- c(...)
     wnames <- names(what)
     names(what) <- if (is.null(wnames)) what else ifelse(wnames == '', what, wnames)
-    res <- data.frame(var=names(results_list))
-    for (name in names(what)) {
-        values <- lapply(results_list, getElement, what[name])
-        if (length(values[[1L]]) == 1L) {
-            res[[name]] <- unlist(values, use.names=FALSE)
-        } else for (i in seq_along(values[[1L]])) {
-            res[[paste(name, i, sep='_')]] <- unlist(lapply(values, getElement, i), use.names=FALSE)
+
+    if (is.data.frame(results_list)) {
+        dn <- dimnames(results_list)
+        res <- expand.grid(dn, KEEP.OUT.ATTRS=FALSE, stringsAsFactors=FALSE) |>
+            setNames(c('var1', 'var2'))
+        for (name in names(what)) {
+            value_len <- results_list[[1L]][[1L]] |> getElement(what[name]) |> length()
+            if (value_len == 1L) {
+                res[[name]] <- results_list |> get_matrix(what[name]) |> as.vector()
+            } else for (i in seq_len(value_len)) {
+                colname <- paste(name, i, sep='_')
+                res[[colname]] <- results_list |> get_matrix(what[name], i) |> as.vector()
+            }
+        }
+        if (identical(dn[[1L]], dn[[2L]])) {
+            res <- res[upper.tri(results_list), ]
+            rownames(res) <- NULL
+        }
+    } else {
+        res <- data.frame(var=names(results_list))
+        for (name in names(what)) {
+            values <- lapply(results_list, getElement, what[name])
+            if (length(values[[1L]]) == 1L) {
+                res[[name]] <- unlist(values, use.names=FALSE)
+            } else for (i in seq_along(values[[1L]])) {
+                colname <- paste(name, i, sep='_')
+                res[[colname]] <- unlist(lapply(values, getElement, i), use.names=FALSE)
+            }
         }
     }
     res
