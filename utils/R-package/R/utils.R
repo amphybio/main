@@ -11,6 +11,10 @@
 #   - Leonardo Gama <leonardo.gama@usp.br> <leogama@github>
 
 
+# @export
+#`%||%` <- utils:::`%||%`
+
+
 #' Apply a function to one variable versus a list of variables
 #'
 #' From a `data.frame`, apply the same (statistical) function between
@@ -45,7 +49,7 @@ stat_list <- function(DATA, FUN, X, Y=NULL, ...) {
     res <- list()
     x <- DATA[, X]
     for (y in Y)
-        res[[y]] <- FUN(x, DATA[, y], ...)
+        res[[y]] <- FUN(DATA[, y], x, ...)
     res
 }
 
@@ -55,33 +59,40 @@ stat_list <- function(DATA, FUN, X, Y=NULL, ...) {
 #' each variable of the first list against each variable of the other
 #' list.
 #'
+#' @param X  row variables
+#' @param Y  column variables
+#'
 #' @export
 
-stat_matrix <- function(DATA, FUN, X=NULL, Y=NULL, ...) {
+stat_matrix <- function(DATA, FUN, ROWS=NULL, COLS=ROWS, ...) {
 
-    if (is.null(X) && is.null(Y))
-        X <- Y <- colnames(DATA)
-    if (is.null(X) || is.null(Y))
-        stop("Pass both 'X' and 'Y' or none of them.")
-    symmetric <- identical(X, Y)
-    m <- length(X)
-    n <- length(Y)
+    FUN <- match.fun(FUN)
+    stopifnot(is.atomic(ROWS), is.atomic(COLS))
+    if (is.null(ROWS)) {
+        if (is.null(COLS))
+            ROWS <- COLS <- colnames(DATA)
+        else
+            stop("Pass both 'ROWS' and 'COLS' or only 'ROWS'.")
+    }
+    if (!is.data.frame(DATA) && !is.matrix(DATA))
+        DATA <- as.data.frame(DATA)
+    symmetric <- identical(ROWS, COLS)
 
-    res <- setNames(replicate(m, list()), X)
-    for (i in seq_len(m)) for (j in seq_len(n)) {
-        x <- X[i]
-        y <- Y[j]
-        if (i > j && symmetric) {
-            stat <- res[[y]][[x]]
+    res <- length(COLS) |> replicate(list()) |> setNames(COLS)  # list of lists
+
+    for (col in seq_along(COLS)) for (row in seq_along(ROWS)) {
+        x <- ROWS[row]
+        y <- COLS[col]
+        if (!symmetric || col <= row) {
+            res[[y]][[x]] <- FUN(DATA[, x], DATA[, y], ...)
+        } else {
+            stat <- res[[x]][[y]]
             if (hasName(stat, 'x') && hasName(stat, 'y')) {
                 tmp <- stat$x
                 stat$x <- stat$y
                 stat$y <- tmp
             }
-            res[[x]][[y]] <- stat
-
-        } else {
-            res[[x]][[y]] <- FUN(DATA[, x], DATA[, y], ...)
+            res[[y]][[x]] <- stat
         }
     }
 
@@ -105,20 +116,23 @@ get_table <- function(results_list, ...) {
 
     if (is.data.frame(results_list)) {
         dn <- dimnames(results_list)
-        res <- expand.grid(dn, KEEP.OUT.ATTRS=FALSE, stringsAsFactors=FALSE) |>
-            setNames(c('var1', 'var2'))
+        symmetric <- identical(dn[[1L]], dn[[2L]])
+        res <- if (symmetric) {
+            dn[[1L]] |> combn(2L) |> t() |> as.data.frame()
+        } else {
+            expand.grid(dn, KEEP.OUT.ATTRS=FALSE, stringsAsFactors=FALSE)[2L:1L]
+        }
+        colnames(res) <- c('var1', 'var2')
         for (name in names(what)) {
             value_len <- results_list[[1L]][[1L]] |> getElement(what[name]) |> length()
             if (value_len == 1L) {
-                res[[name]] <- results_list |> get_matrix(what[name]) |> as.vector()
+                mat <- results_list |> get_matrix(what[name])
+                res[[name]] <- if (symmetric) mat[lower.tri(mat)] else as.vector(mat)
             } else for (i in seq_len(value_len)) {
                 colname <- paste(name, i, sep='_')
-                res[[colname]] <- results_list |> get_matrix(what[name], i) |> as.vector()
+                mat <- results_list |> get_matrix(what[name], i)
+                res[[colname]] <- if (symmetric) mat[lower.tri(mat)] else as.vector(mat)
             }
-        }
-        if (identical(dn[[1L]], dn[[2L]])) {
-            res <- res[upper.tri(results_list), ]
-            rownames(res) <- NULL
         }
     } else {
         res <- data.frame(var=names(results_list))
@@ -142,12 +156,26 @@ get_table <- function(results_list, ...) {
 #'
 #' @export
 
-get_matrix <- function(list_matrix, name, index=1L) {
-    res <- sapply(
-            list_matrix,
-            sapply,
-            function(object, name) unname(getElement(object, name))[index],
-            name
+get_matrix <- function(list_matrix, name, index=1L, diag_value=NULL, mode=NULL) {
+    if (missing(mode))
+        mode <- list_matrix[[1L]][[1L]] |> getElement(name) |> getElement(index) |> typeof()
+    value_template <- vector(mode, 1L)
+
+    res <- list_matrix |> sapply(
+        vapply,
+        function(x, y) getElement(x, y)[[index]],
+        value_template,
+        name
     )
-    t(res)
+
+    if (!is.null(diag_value)) {
+        diag_value <- rep(diag_value, nrow(res))
+        stopifnot(
+            identical(rownames(res), colnames(res)),
+            all.equal(unname(diag(res)), diag_value)
+        )
+        diag(res) <- diag_value
+    }
+
+    res
 }
