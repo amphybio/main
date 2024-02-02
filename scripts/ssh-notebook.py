@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 # vim: fileencoding=utf-8
 
-# Version:  0.1
+# Version:  0.1.1
 # Created:  01-02-2024
-# Updated:  01-02-2024
+# Updated:  02-02-2024
 # Authors:  Leonardo Gama <leonardo.gama@usp.br>
 
 # MIT License
@@ -34,7 +34,7 @@
 This script executes four tasks by running a single 'ssh' command:
     1. Establishes a SSH connection to the remote host.
     2. Forwards a random TCP port in the dynamic range through tunnelling.
-    3. Starts the Jupyter Notebook server in the remote host using that same port.
+    3. Starts the Jupyter Notebook server in the remote host using that port.
     4. Opens the notebook interface on the default web browser.
 """
 
@@ -57,16 +57,16 @@ PORT_MAX = 65535
 
 # Accept custom hostname.
 
-desc = __main__.__doc__.split('\n\n', 1)
+docstring = __main__.__doc__.split('\n\n', 1)
 parser = argparse.ArgumentParser(
     prog = "ssh-notebook",
-    description = desc[0],
-    epilog = desc[1],
+    description = docstring[0],
+    epilog = docstring[1],
     formatter_class = argparse.RawDescriptionHelpFormatter
 )
 parser.add_argument(
     'host',
-    help = 'SSH destination (default: %(default)s)',
+    help = "SSH destination (default: %(default)s)",
     metavar = "[user@]hostname[:port]",
     nargs = '?',
     default = DEFAULT_HOSTNAME
@@ -87,7 +87,7 @@ cmd = [*ssh_cmd.split(), '--', *notebook_cmd.split()]
 
 print(
     f"""
-    Launching Jupyter Notebook at {args.host} on TCP port {port} with remote command:
+    Launching Jupyter Notebook at {args.host} on port {port} with command:
         $ {ssh_cmd} -- {notebook_cmd}""",
     end = '\n\n'
 )
@@ -115,7 +115,8 @@ for line in ssh_process.stderr:
         notebook_url = match.group(1)
         break
 
-print("    If the notebook doesn't open automatically, copy and paste one of these URLs:")
+print("    If the notebook doesn't open automatically, "
+      "copy and paste one of these URLs:")
 print(line, end='')  # notebook URL
 print(next(ssh_process.stderr))  # alternative URL
 
@@ -124,15 +125,14 @@ webbrowser.open_new_tab(notebook_url)
 
 # Wait for the SSH subprocess to finish.
 
-print("    Terminate this program (Ctrl-C) to quit the notebook server and close the connection.\n")
+print("    Terminate this program (Ctrl-C) to quit the notebook server"
+      " and close the connection.\n")
 
 try:
     for line in ssh_process.stderr:
         print(line, end='')
 except KeyboardInterrupt:
-    ssh_process.terminate()
     print()
-else:
-    ssh_process.wait()
-finally:
-    sys.exit(ssh_process.returncode)
+    ssh_process.terminate()
+
+sys.exit(ssh_process.wait())
