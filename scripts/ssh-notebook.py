@@ -3,31 +3,30 @@
 
 # Version:  0.1.1
 # Created:  01-02-2024
-# Updated:  02-02-2024
-# Authors:  Leonardo Gama <leonardo.gama@usp.br>
+# Updated:  17-02-2024
+# Authors:
+#   Leonardo Gama <leonardo.gama@usp.br>
+#   Gabriela Alcaide <gabriela.alcaide@usp.br>
 
 # MIT License
 #
-# Copyright  2024  Alexandre Ferreira Ramos
+# Copyright (c) 2024  Alexandre Ferreira Ramos - AMPhyBio Laboratory
 #
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+# of the Software, and to permit persons to whom the Software is furnished to do
+# so, subject to the following conditions: The above copyright notice and this
+# permission notice shall be included in all copies or substantial portions of
+# the Software.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS
+# OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+# IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 """Launch Jupyter Notebook on remote host through SSH.
 
@@ -48,7 +47,7 @@ import webbrowser
 import __main__
 
 
-DEFAULT_HOSTNAME = 'antp'
+DEFAULT_HOSTNAME = 'antp'  # 143.107.58.80:2222
 
 # Range of dynamic (unassigned) TCP ports.
 PORT_MIN = 49152
@@ -82,7 +81,7 @@ port = random.randrange(PORT_MIN, PORT_MAX + 1)
 # Launch the notebook server on remote host and forward through SSH tunnel.
 
 ssh_cmd = f'ssh -L {port}:localhost:{port} ssh://{args.host}'
-notebook_cmd = f'jupyter notebook --port={port} --log-level=WARN --no-browser'
+notebook_cmd = f'ssh-notebook-server --port={port} --log-level=WARN --no-browser'
 cmd = [*ssh_cmd.split(), '--', *notebook_cmd.split()]
 
 print(
