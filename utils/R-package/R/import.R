@@ -49,6 +49,7 @@ excel_cols <- function(...) {
 }
 
 
+
 default_hash <- function(x) vapply(x, rlang::hash, character(1), USE.NAMES = FALSE)
 
 read_sheet <- function(
@@ -177,6 +178,120 @@ read_sheet <- function(
     }
 
     dat
+}
+
+
+## functions for data extraction, formatting and validation ##
+
+extract_and_format <- function(table_name, origin_tables, annotation, check = TRUE) {
+
+    data <- table_name |>
+        extract_table(origin_tables, annotation) |>
+        relabel_factors() |>
+        cast_types() |>
+        generate_derived()
+
+    if (check && FALSE)  #TODO: implement and test
+        check_types_values(data)
+
+    data
+}
+
+
+extract_table <- function(table_name, origin_tables, annotation, col_types = NULL) {
+
+    # Get primary columns for this table.
+    primary_columns <- annotation |>
+        filter(table == table_name, origin != 'ALL', origin != 'DERIVED') |>
+        mutate(header = coalesce(header, variable))
+
+    #with(primary_columns, print(variable |> set_names(header)))
+
+    # Extract the specified columns from the original tables.
+    parts <- list()
+    for (origin_table in unique(primary_columns$origin)) {
+        columns <- primary_columns |>
+            filter(origin == origin_table) |>
+            pull(variable, header)
+        parts[[origin_table]] <- origin_tables[[origin_table]] |>
+            select(id, all_of(names(columns))) |>
+            rename_with(partial(extract, columns), !id)
+    }
+
+    # Generate the 'annotation' attribute.
+    annotation <- annotation |>
+        filter(table == table_name) |>
+        select(!table) |>
+        column_to_rownames('variable')
+
+    # Join parts and bind annotation.
+    parts |>
+        reduce(full_join, by = 'id') |>
+        set_attr('annotation', annotation)
+}
+
+
+relabel_factors <- function(data) {
+
+    relabel_columns <- get_annotation(data) |>
+        filter(!is.na(levels))
+
+    for (column in intersect(colnames(data), rownames(relabel_columns))) {
+        levels <- relabel_columns[column, 'valid'] |> str_split_1(';')
+        labels <- relabel_columns[column, 'levels'] |> str_split_1(';')
+        data[[column]] <- data[[column]] |> factor(levels, labels)
+    }
+
+    data
+}
+
+
+standard_cast <- list(
+    binary = as.logical,
+    nominal = as.factor,
+    ordinal = as.ordered,
+    discrete = as.integer,
+    continuous = as.numeric,
+    date = as.Date,  # POSIX time?
+    text = as.character
+)
+
+
+cast_types <- function(data, custom_cast = NULL) {
+
+    cast_func <- standard_cast
+    if (!is.null(custom_cast))
+        cast_func[names(cutom_cast)] <- custom_cast
+
+    cast_columns <- get_annotation(data) |>
+        filter(origin != 'ALL', origin != 'DERIVED') %>%
+        { pull(., class) |> set_names(rownames(.)) }
+
+    for (name in names(cast_columns)) {
+        cast <- cast_func[[cast_columns[name]]]
+        data[[name]] <- cast(data[[name]])
+    }
+
+    data
+}
+
+
+generate_derived <- function(data) {
+
+    derived_columns <- get_annotation(data) |>
+        filter(origin == 'DERIVED') %>%
+        { pull(., transform) |> set_names(rownames(.)) }
+
+    for (name in names(derived_columns))
+        data[[name]] <- data |> with(eval(parse_expr(derived_columns[name])))
+    data
+}
+
+
+check_types_values <- function(data) {
+
+    validators <- get_annotation(data) |>
+        filter(!is.na(valid))
 }
 
 
