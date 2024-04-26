@@ -4,7 +4,7 @@
 #
 # Copyright 2023-2024 Alexandre Ramos, AMPhyBio Laboratory <alex.ramos@usp.br>
 #
-# Project:  AMPhyBio Code Library
+# Project:  AMPhyBio Utilities Library
 # Version:  0.1
 # Created:  06-12-2020
 # Authors:
@@ -60,11 +60,11 @@ read_sheet <- function(
     check = TRUE,
     checksum = NULL,
     checksum_func = tools::md5sum,
+    rows = NULL,
     id_col = NULL,
     id_cast = NULL,
     sensible_cols = NULL,
-    hash_func = default_hash,
-    rows = NULL
+    hash_func = default_hash
 
 ) {
     #'  Read an Excel sheet applying some checks.
@@ -83,46 +83,70 @@ read_sheet <- function(
     #'          Includes typical Excel ranges like "B3:D87" and more.
     #'      guess_max (integer):
     #'          Maximum number of data rows to use for guessing column types.
-    #'      check (logical): Whether to apply the checks.
+    #'      check (logical): Whether to apply the checks (see below).
+    #'      checksum (character): Checksum string of the file in 'path'.
+    #'      rows (integer):
+    #'          Expected number of rows in the returned table. If 'id_col' is
+    #'          specified, this is the number of rows left after dropping those
+    #'          with NA values in the identifier column.
+    #'      id_col (character|integer):
+    #'          If an integer, the number of the column to be used as
+    #'          identifier.  If text, a regular expression that matches the name
+    #'          of that column.
+    #'      id_cast (function):
+    #'          A function applied to the values of the identifier column.
+    #'          Example: 'as.integer'.
+    #'      sensible_cols (integer|character):
+    #'          Numbers or names of columns that contain sensible data and
+    #'          should be annonymized by hashing its values with 'hash_func'.
+    #'      hash_func (function):
+    #'          A function that converts vectors (the columns specifiend by
+    #'          'sensible_cols') to vectors of hash strings.
     #'
     #'  Returns:
-    #'      data.frame: The read table (sheet).
+    #'      data.frame: The read table (sheet of spreadsheet file).
     #'
     #'  Raises:
-    #'      Error if...
+    #'      Always stops if:
+    #'          - the expression in 'id_col' doesn't match exactly 1 column
+    #'      When 'check' is TRUE, stops if:
+    #'          - the file pointed by 'path' is not accessible for any reason
+    #'          - the 'checksum' value doesn't match the file's checksum
+    #'          - the number of rows with valid identifiers isn't equal 'rows'
     #'
     #'  See Also:
     #'      `vignette('sheet-geometry', package = 'readxl')`
-    #'
-    #'  Example:
-    #'
-    #'      sheets <- readxl::read_excel('data/annotation.xlsx, sheet = 'sheets') |>
-    #'          column_to_rownames('name')  # also casts to data.frame
-    #'
-    #'      raw_dat <- list()
-    #'
-    #'      for (i in seq(nrow(sheets))) {
-    #'          name <- rownames(sheets)[i]
-    #'          raw_dat[[name]] <- with(sheets[i, ], {
-    #'              read_sheet(
-    #'                  path = user::data_file(filename),
-    #'                  sheet = sheet_name,
-    #'                  range = range,
-    #'                  guess_max = 10000,
-    #'                  checksum = md5sum,
-    #'                  id_col = id_col,
-    #'                  id_cast = as.integer,
-    #'                  sensible_cols = if (!is.na(sensible_cols)) str_split_1(sensible_cols, ';'),
-    #'                  rows = rows
-    #'              )
-    #'          })
-    #'      }
-    #'
-    #'  # Reexport data to tabulated files.
-    #'  for (name in names(raw_dat)) {
-    #'      filename <- sprintf('data/%s.tsv', name)
-    #'      write.table(raw_dat[[name]], filename, sep = '\t', row.names = FALSE)
-    #'  }
+
+    #TODO: write simple examples
+    #  Example:
+    #
+    #      sheets <- readxl::read_excel('data/annotation.xlsx, sheet = 'sheets') |>
+    #          column_to_rownames('name')  # also casts to data.frame
+    #
+    #      raw_dat <- list()
+    #
+    #      for (i in seq(nrow(sheets))) {
+    #          name <- rownames(sheets)[i]
+    #          raw_dat[[name]] <- with(sheets[i, ], {
+    #              read_sheet(
+    #                  path = user::data_file(filename),
+    #                  sheet = sheet_name,
+    #                  range = range,
+    #                  guess_max = 10000,
+    #                  checksum = md5sum,
+    #                  id_col = id_col,
+    #                  id_cast = as.integer,
+    #                  sensible_cols = if (!is.na(sensible_cols)) str_split_1(sensible_cols, ';'),
+    #                  rows = rows
+    #              )
+    #          })
+    #      }
+    #
+    #  # Reexport data to tabulated files.
+    #  for (name in names(raw_dat)) {
+    #      filename <- sprintf('data/%s.tsv', name)
+    #      write.table(raw_dat[[name]], filename, sep = '\t', row.names = FALSE)
+    #  }
 
     is_nil <- function(x) is.null(x) || (length(x) == 1 && is.na(x))
 
@@ -143,18 +167,27 @@ read_sheet <- function(
     #FIXME: trim_ws from read_excel is ignored (using str_trim)
     dat <- path |>
         readxl::read_excel(sheet, range, guess_max = guess_max) |>
-        mutate(across(where(is.character), stringr::str_trim)) |>
+        mutate(across(where(is.character), str_trim)) |>
         as.data.frame()
 
     # Remove spurious whitespaces from column headers.
-    colnames(dat) <- colnames(dat) |> stringr::str_squish()
+    colnames(dat) <- colnames(dat) |> str_squish()
 
     # Manipulate the ID column.
     if (!is_nil(id_col)) {
         # Match exact regex to find the ID column.
         if (is.character(id_col)) {
-            id_col <- colnames(dat) |>
-                stringr::str_which(stringr::str_c('^', id_col, '$'))
+            match_col <- colnames(dat) |>
+                str_which(str_c('^', id_col, '$'))
+
+            #TODO: cover all cases
+            if (length(match_col) != 1) {
+                "the 'id_col' expression matched %d columns: '%s'" |>
+                    sprintf(length(match_col), id_col) |>
+                    stop()
+            }
+
+            id_col <- match_col
         }
 
         # Relocate and rename the ID column to 'id'.
@@ -163,8 +196,8 @@ read_sheet <- function(
         # Cast id column and drop invalid/empty entries.
         if (!is.null(id_cast)) {
             dat[['id']] <- suppressWarnings(id_cast(dat[['id']]))
-            dat <- dat |> filter(!is.na(id))
         }
+        dat <- dat |> filter(!is.na(id))
     }
 
     # Calculate hash of sensible (unused) data.
@@ -295,4 +328,4 @@ check_types_values <- function(data) {
 }
 
 
-get_annotation <- attr_getter('annotation')
+#get_annotation <- attr_getter('annotation')
