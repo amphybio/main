@@ -54,9 +54,9 @@ default_hash <- function(x) vapply(x, rlang::hash, character(1), USE.NAMES = FAL
 
 read_sheet <- function(
     path,
-    sheet = 1L,
+    sheet = NULL,
     range = NULL,
-    guess_max = Inf,
+    guess_max = 1000,
     check = TRUE,
     checksum = NULL,
     checksum_func = tools::md5sum,
@@ -77,7 +77,8 @@ read_sheet <- function(
     #'      path (character): Path to the xls/xlsx file.
     #'      sheet (character|integer):
     #'          Sheet to read.  Either a string (the name of a sheet), or an
-    #'          integer (the position of the sheet).
+    #'          integer (the position of the sheet).  Defaults to the first
+    #'          sheet in the file
     #'      range (character):
     #'          A cell range to read from, as described in cell-specification.
     #'          Includes typical Excel ranges like "B3:D87" and more.
@@ -164,9 +165,13 @@ read_sheet <- function(
     # Read single sheet.
     cat(sprintf("Reading '%s'\n", path))
 
-    #FIXME: trim_ws from read_excel is ignored (using str_trim)
+    #if (missing(guess_max) && !missing(range) && is.character(range)) {
+        #TODO
+    #}
+
     dat <- path |>
-        readxl::read_excel(sheet, range, guess_max = guess_max) |>
+        readxl::read_excel(if (!is_nil(sheet)) sheet, range, guess_max = guess_max) |>
+        #FIXME: trim_ws from read_excel is ignored (using str_trim)
         mutate(across(where(is.character), str_trim)) |>
         as.data.frame()
 
@@ -216,6 +221,8 @@ read_sheet <- function(
 
 ## functions for data extraction, formatting and validation ##
 
+get_annotation <- purrr::attr_getter('annotation')
+
 extract_and_format <- function(table_name, origin_tables, annotation, check = TRUE) {
 
     data <- table_name |>
@@ -248,7 +255,7 @@ extract_table <- function(table_name, origin_tables, annotation, col_types = NUL
             pull(variable, header)
         parts[[origin_table]] <- origin_tables[[origin_table]] |>
             select(id, all_of(names(columns))) |>
-            rename_with(partial(extract, columns), !id)
+            rename_with(purrr::partial(extract, columns), !id)
     }
 
     # Generate the 'annotation' attribute.
@@ -259,7 +266,7 @@ extract_table <- function(table_name, origin_tables, annotation, col_types = NUL
 
     # Join parts and bind annotation.
     parts |>
-        reduce(full_join, by = 'id') |>
+        purrr::reduce(full_join, by = 'id') |>
         set_attr('annotation', annotation)
 }
 
@@ -279,10 +286,17 @@ relabel_factors <- function(data) {
 }
 
 
+as_ordered_keep_levels <- function(x) {
+    if (is.ordered(x)) return(x)
+    if (!is.factor(x)) return(ordered(x))
+    factor(x, levels = levels(x), ordered = TRUE)
+}
+
+
 standard_cast <- list(
     binary = as.logical,
     nominal = as.factor,
-    ordinal = as.ordered,
+    ordinal = as_ordered_keep_levels,
     discrete = as.integer,
     continuous = as.numeric,
     date = as.Date,  # POSIX time?
@@ -328,4 +342,3 @@ check_types_values <- function(data) {
 }
 
 
-#get_annotation <- attr_getter('annotation')
