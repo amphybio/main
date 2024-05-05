@@ -9,7 +9,11 @@ License: GPL (>= 3)
 Encoding: UTF-8
 Imports:
     dplyr,
+    glue,
     purrr,
-    readxl,
     rlang,
-    stringr
+    stringr,
+    withr
+Suggests:
+    bitops,
+    readxl
