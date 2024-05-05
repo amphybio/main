@@ -64,7 +64,7 @@ read_sheet <- function(
     id_col = NULL,
     id_cast = NULL,
     sensible_cols = NULL,
-    hash_func = default_hash
+    hash_func = hash  # custom FNV-1a implementation
 
 ) {
     #'  Read an Excel sheet applying some checks.
