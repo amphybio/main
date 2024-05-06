@@ -11,8 +11,8 @@
 #   - Leonardo Gama <leonardo.gama@usp.br> <leogama@github>
 
 
-EXCEL_COLS <- expand.grid(LETTERS, c('', LETTERS))
-EXCEL_COLS <- setNames(1:(26*27), paste0(EXCEL_COLS[[2]], EXCEL_COLS[[1]]))
+HEADER_NAME <- expand.grid(LETTERS, c('', LETTERS))
+HEADER_NAME <- 1:(26*27) |> set_names(str_c(HEADER_NAME[[2]], HEADER_NAME[[1]]))
 
 #' Convert spreadsheet column ranges to numeric indexes
 #'
@@ -24,49 +24,77 @@ EXCEL_COLS <- setNames(1:(26*27), paste0(EXCEL_COLS[[2]], EXCEL_COLS[[1]]))
 #'
 #' @export
 
-excel_cols <- function(...) {
+sheet_cols <- function(...) {
     args <- toupper(as.character(list(...)))
     if (length(args) == 1) {
         # Accept indexes as a comma separated list in a character string.
         args <- strsplit(trimws(args), '[[:space:]]*,[[:space:]]*')[[1]]
     }
-    if (length(invalid <- grep('^[A-Z]{1,2}(:[A-Z]{1,2})?$', args, invert=TRUE, value=TRUE))) {
-        stop("Invalid column index or range:  ", paste(invalid, collapse=", "))
+    invalid <- grep('^[A-Z]{1,2}(:[A-Z]{1,2})?$', args, invert = TRUE, value = TRUE)
+    if (length(invalid) > 0) {
+        stop("Invalid column index or range:  ", paste(invalid, collapse = ", "))
     }
 
     cols <- integer()
     for (col_index in strsplit(args, ':')) {
         if (length(col_index) == 1) {
-            cols <- c(cols, EXCEL_COLS[col_index[[1]]])
+            cols <- c(cols, HEADER_NAME[col_index[[1]]])
         } else {
             # Preserve columns' alphabetical indexes in names.
-            range_begin <- EXCEL_COLS[col_index[[1]]]
-            range_end <- EXCEL_COLS[col_index[[2]]]
-            cols <- c(cols, EXCEL_COLS[range_begin:range_end])
+            range_begin <- HEADER_NAME[col_index[[1]]]
+            range_end <- HEADER_NAME[col_index[[2]]]
+            cols <- c(cols, HEADER_NAME[range_begin:range_end])
         }
     }
     cols
 }
 
 
+#' Convert factor to ordered keeping unused levels.
+#'
+#' By default, ordered() and as.ordered() drop unused levels.
+#'
+#' @param x  A factor
+#' @returns  An ordered factor
+#' @seealso [as.ordered()]
+#' @export
 
-default_hash <- function(x) vapply(x, rlang::hash, character(1), USE.NAMES = FALSE)
+as_ordered_keep_levels <- function(x) {
+    if (is.ordered(x)) {
+        x
+    } else if (!is.factor(x)) {
+        ordered(x)
+    } else {
+        factor(x, levels = levels(x), ordered = TRUE)
+    }
+}
+
+
+default_casting <- list(
+    binary = as.logical,
+    nominal = as.factor,
+    ordinal = as_ordered_keep_levels,
+    discrete = as.integer,
+    continuous = as.numeric,
+    date = as.Date,  # use POSIX time?
+    text = as.character
+)
+
 
 read_sheet <- function(
-    path,
-    sheet = NULL,
-    range = NULL,
-    guess_max = 1000,
-    check = TRUE,
-    checksum = NULL,
-    checksum_func = tools::md5sum,
-    rows = NULL,
-    id_col = NULL,
-    id_cast = NULL,
-    sensible_cols = NULL,
-    hash_func = hash  # custom FNV-1a implementation
+        path,
+        sheet = NULL,
+        range = NULL,
+        guess_max = 1000,
+        check = TRUE,
+        checksum = NULL,
+        checksum_func = tools::md5sum,
+        rows = NULL,
+        id_col = NULL,
+        id_cast = NULL,
+        sensible_cols = NULL,
+        hash_func = hash) {
 
-) {
     #'  Read an Excel sheet applying some checks.
     #'
     #'  Read a single sheet from a spreadsheet file in Microsoft Excel's format
@@ -219,16 +247,16 @@ read_sheet <- function(
 }
 
 
-## functions for data extraction, formatting and validation ##
+## Functions for data extraction, formatting and validation ##
 
-get_annotation <- purrr::attr_getter('annotation')
+annotation <- purrr::attr_getter('annotation')
 
-extract_and_format <- function(
-    table_name,
-    origin_tables,
-    annotation,
-    check = TRUE
-) {
+construct_table <- function(
+        table_name,
+        origin_tables,
+        annot_table,
+        check = TRUE) {
+
     #'  Generate a tidy (well format) data.frame from one or potentially more
     #'  tabulated file's original data.
     #'
@@ -237,10 +265,12 @@ extract_and_format <- function(
     #'  Parameters:
     #'      table_name (character):
     #'          The tables's identification in the column named "table" in the
-    #'          'annotation' data.frame.
+    #'          'annot_table' data.frame.
     #'      origin_tables (list[data.frame]):
     #'          A list containing the data.frames corresponding to each
     #'          tabulated file or sheet of original data.
+    #'      annot_table (data.frame): annotation of variables.
+    #'      check (logical): whether to perform checks on data.
     #'
     #'  Returns:
     #'      data.frame: The read table (sheet of spreadsheet file).
@@ -257,22 +287,28 @@ extract_and_format <- function(
     #'      `vignette('sheet-geometry', package = 'readxl')`
 
     data <- table_name |>
-        extract_table(origin_tables, annotation) |>
+        construct_from_annotation(origin_tables, annot_table) |>
         relabel_factors() |>
         cast_types() |>
         generate_derived()
 
-    if (check && FALSE)  #TODO: implement and test
-        check_types_values(data)
+    #TODO: implement and test
+    #if (check) {
+    #    check_types_values(data)
+    #}
 
     data
 }
 
 
-extract_table <- function(table_name, origin_tables, annotation, col_types = NULL) {
+construct_from_annotation <- function(
+        table_name,
+        origin_tables,
+        annot_table,
+        col_types = NULL) {
 
     # Get primary columns for this table.
-    primary_columns <- annotation |>
+    primary_columns <- annot_table |>
         filter(table == table_name, origin != 'ALL', origin != 'DERIVED') |>
         mutate(header = coalesce(header, variable))
 
@@ -290,7 +326,7 @@ extract_table <- function(table_name, origin_tables, annotation, col_types = NUL
     }
 
     # Generate the 'annotation' attribute.
-    annotation <- annotation |>
+    annot_table <- annot_table |>
         filter(table == table_name) |>
         select(!table) |>
         column_to_rownames('variable')
@@ -298,13 +334,14 @@ extract_table <- function(table_name, origin_tables, annotation, col_types = NUL
     # Join parts and bind annotation.
     parts |>
         purrr::reduce(full_join, by = 'id') |>
-        set_attr('annotation', annotation)
+        set_attr('annotation', annot_table) %>%
+        set_class(c('annot_df', class(.)))
 }
 
 
 relabel_factors <- function(data) {
 
-    relabel_columns <- get_annotation(data) |>
+    relabel_columns <- annotation(data) |>
         filter(!is.na(levels))
 
     for (column in rownames(relabel_columns) |> intersect(colnames(data))) {
@@ -318,24 +355,13 @@ relabel_factors <- function(data) {
 }
 
 
-standard_cast <- list(
-    binary = as.logical,
-    nominal = as.factor,
-    ordinal = ordered_keep_levels,
-    discrete = as.integer,
-    continuous = as.numeric,
-    date = as.Date,  # POSIX time?
-    text = as.character
-)
+cast_types <- function(data, casting = NULL) {
 
+    cast_func <- default_casting
+    if (!is.null(casting))
+        cast_func[names(casting)] <- casting
 
-cast_types <- function(data, custom_cast = NULL) {
-
-    cast_func <- standard_cast
-    if (!is.null(custom_cast))
-        cast_func[names(cutom_cast)] <- custom_cast
-
-    cast_columns <- get_annotation(data) |>
+    cast_columns <- annotation(data) |>
         filter(origin != 'ALL', origin != 'DERIVED') %>%
         { pull(., class) |> set_names(rownames(.)) }
 
@@ -350,7 +376,7 @@ cast_types <- function(data, custom_cast = NULL) {
 
 generate_derived <- function(data) {
 
-    derived_columns <- get_annotation(data) |>
+    derived_columns <- annotation(data) |>
         filter(origin == 'DERIVED') %>%
         { pull(., transform) |> set_names(rownames(.)) }
 
@@ -363,6 +389,6 @@ generate_derived <- function(data) {
 
 check_types_values <- function(data) {
 
-    validators <- get_annotation(data) |>
+    validators <- annotation(data) |>
         filter(!is.na(valid))
 }

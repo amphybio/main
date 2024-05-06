@@ -15,22 +15,6 @@
 #`%||%` <- utils:::`%||%`
 
 
-#' Convert factor to ordered keeping unused levels.
-#'
-#' By default, ordered() and as.ordered() drop unused levels.
-#'
-#' @param x  A factor
-#' @returns  An ordered factor
-#' @seealso [ordered()]
-#' @export
-
-ordered_keep_levels <- function(x) {
-    if (is.ordered(x)) return(x)
-    if (!is.factor(x)) return(ordered(x))
-    factor(x, levels = levels(x), ordered = TRUE)
-}
-
-
 #' Apply a function to one variable versus a list of variables
 #'
 #' From a `data.frame`, apply the same (statistical) function between

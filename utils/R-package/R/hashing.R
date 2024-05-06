@@ -16,6 +16,7 @@
 #' Vectorized version of FNV-1a with optional salt string.
 
 hash <- function(x, length = 8L, salt = NULL) {
+
     rlang::check_installed('bitops', reason = "to use `amphybio::hash()^")
     withr::local_package('bitops')
 
@@ -46,6 +47,7 @@ hash <- function(x, length = 8L, salt = NULL) {
 }
 
 fnv1a_32_loop <- function(bytes) {
+
     hash <- FNV32_BASIS
     for (byte in bytes) {
         hash <- hash %^% byte
