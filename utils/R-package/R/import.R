@@ -223,7 +223,38 @@ read_sheet <- function(
 
 get_annotation <- purrr::attr_getter('annotation')
 
-extract_and_format <- function(table_name, origin_tables, annotation, check = TRUE) {
+extract_and_format <- function(
+    table_name,
+    origin_tables,
+    annotation,
+    check = TRUE
+) {
+    #'  Generate a tidy (well format) data.frame from one or potentially more
+    #'  tabulated file's original data.
+    #'
+    #'  Long description...
+    #'
+    #'  Parameters:
+    #'      table_name (character):
+    #'          The tables's identification in the column named "table" in the
+    #'          'annotation' data.frame.
+    #'      origin_tables (list[data.frame]):
+    #'          A list containing the data.frames corresponding to each
+    #'          tabulated file or sheet of original data.
+    #'
+    #'  Returns:
+    #'      data.frame: The read table (sheet of spreadsheet file).
+    #'
+    #'  Raises:
+    #'      Always stops if:
+    #'          - the expression in 'id_col' doesn't match exactly 1 column
+    #'      When 'check' is TRUE, stops if:
+    #'          - the file pointed by 'path' is not accessible for any reason
+    #'          - the 'checksum' value doesn't match the file's checksum
+    #'          - the number of rows with valid identifiers isn't equal 'rows'
+    #'
+    #'  See Also:
+    #'      `vignette('sheet-geometry', package = 'readxl')`
 
     data <- table_name |>
         extract_table(origin_tables, annotation) |>
@@ -276,20 +307,14 @@ relabel_factors <- function(data) {
     relabel_columns <- get_annotation(data) |>
         filter(!is.na(levels))
 
-    for (column in intersect(colnames(data), rownames(relabel_columns))) {
+    for (column in rownames(relabel_columns) |> intersect(colnames(data))) {
+
         levels <- relabel_columns[column, 'valid'] |> str_split_1(';')
         labels <- relabel_columns[column, 'levels'] |> str_split_1(';')
         data[[column]] <- data[[column]] |> factor(levels, labels)
     }
 
     data
-}
-
-
-as_ordered_keep_levels <- function(x) {
-    if (is.ordered(x)) return(x)
-    if (!is.factor(x)) return(ordered(x))
-    factor(x, levels = levels(x), ordered = TRUE)
 }
 
 
@@ -330,7 +355,8 @@ generate_derived <- function(data) {
         { pull(., transform) |> set_names(rownames(.)) }
 
     for (name in names(derived_columns))
-        data[[name]] <- data |> with(eval(parse_expr(derived_columns[name])))
+        data[[name]] <- data |>
+            with(derived_columns[name] |> rlang::parse_expr() |> eval())
     data
 }
 
@@ -340,5 +366,3 @@ check_types_values <- function(data) {
     validators <- get_annotation(data) |>
         filter(!is.na(valid))
 }
-
-
