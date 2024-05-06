@@ -24,7 +24,7 @@
 #' @seealso [ordered()]
 #' @export
 
-as_ordered_keep_levels <- function(x) {
+ordered_keep_levels <- function(x) {
     if (is.ordered(x)) return(x)
     if (!is.factor(x)) return(ordered(x))
     factor(x, levels = levels(x), ordered = TRUE)

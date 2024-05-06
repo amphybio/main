@@ -1,4 +1,4 @@
-export(as_ordered_keep_levels)
+export(ordered_keep_levels)
 export(excel_cols)
 export(extract_and_format)
 export(hash)

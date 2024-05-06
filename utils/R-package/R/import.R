@@ -321,7 +321,7 @@ relabel_factors <- function(data) {
 standard_cast <- list(
     binary = as.logical,
     nominal = as.factor,
-    ordinal = as_ordered_keep_levels,
+    ordinal = ordered_keep_levels,
     discrete = as.integer,
     continuous = as.numeric,
     date = as.Date,  # POSIX time?
