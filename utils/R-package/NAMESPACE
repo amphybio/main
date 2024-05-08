@@ -1,4 +1,5 @@
 export(as_ordered_keep_levels)
+export(combat)
 export(construct_table)
 export(hash)
 export(read_sheet)
