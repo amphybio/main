@@ -1,5 +1,5 @@
-Package: amphy
-Title: AMPhyBio Laboratory's Utilities for Data Exploration
+Package: amphybio
+Title: AMPhyBio Laboratory's Utilities for Data Analysis
 Version: 0.0.0.9000
 Authors@R: 
     person("Leonardo", "Gama", , "leonardo.gama@usp.br", role = c("aut", "cre"),
@@ -7,5 +7,15 @@ Authors@R:
 Description: General utilities for data importing, manipulation and exploratory analysis.
 License: GPL (>= 3)
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+Imports:
+    dplyr,
+    glue,
+    magrittr,
+    purrr,
+    rlang,
+    stringr,
+    withr
+Suggests:
+    bitops,
+    readxl,
+    sva
