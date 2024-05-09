@@ -5,7 +5,7 @@
 # Copyright 2024 Alexandre Ramos, AMPhyBio Laboratory <alex.ramos@usp.br>
 #
 # Project:  AMPhyBio Utilities
-# Version:  0.1
+# Version:  0.1a
 # Created:  06-05-2024
 # Authors:
 #   - Leonardo Gama <leonardo.gama@usp.br> <leogama@github>
