@@ -1,6 +1,6 @@
 Package: amphybio
 Title: AMPhyBio Laboratory's Utilities for Data Analysis
-Version: 0.1a
+Version: 0.1.0
 Authors@R: 
     person("Leonardo", "Gama", , "leonardo.gama@usp.br", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-2633-0935"))
