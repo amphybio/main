@@ -17,4 +17,5 @@ Imports:
     withr
 Suggests:
     bitops,
-    readxl
+    readxl,
+    sva
