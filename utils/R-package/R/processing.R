@@ -59,10 +59,14 @@ combat <- function(
     #'
     #'  @export
 
+    if (!requireNamespace('sva', quietly = TRUE)) {
+        stop("Package 'sva' is not installed but is required.")
+    }
+
     if (missing(vars)) {
         num_data <- data |> select(where(is.numeric), -all_of(covars)) 
-        if (length(batch == 1)) {
-            num_data <- num_data |> select(-all_of(batch))
+        if (length(batch) == 1) {
+            num_data <- num_data |> select(-any_of(batch))
         }
     } else {
         num_data <- data |> select(all_of(vars))
@@ -89,7 +93,9 @@ combat <- function(
         par.prior = parametric,
         mean.only = mean.only,
         ref.batch = ref.batch,
-        ...))
+        ...)) |>
+    t() |>
+    as.data.frame()
 
-    as.data.frame(t(res))
+    data |> mutate(res)
 }
