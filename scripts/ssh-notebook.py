@@ -3,7 +3,7 @@
 
 # Version:  0.1.1
 # Created:  01-02-2024
-# Updated:  17-02-2024
+# Updated:  23-12-2024
 # Authors:
 #   Leonardo Gama <leonardo.gama@usp.br>
 #   Gabriela Alcaide <gabriela.alcaide@usp.br>
@@ -72,7 +72,7 @@ parser.add_argument(
     nargs = '?',
     default = DEFAULT_HOSTNAME
 )
-args = parser.parse_args()
+args, jupyter_args = parser.parse_known_args()
 
 
 # Choose a random port in the range.
@@ -82,14 +82,17 @@ port = random.randrange(PORT_MIN, PORT_MAX + 1)
 
 # Launch the notebook server on remote host and forward through SSH tunnel.
 
-ssh_cmd = f'ssh -L {port}:localhost:{port} ssh://{args.host}'
-notebook_cmd = f'ssh-notebook-server --port={port} --log-level=WARN --no-browser'
-cmd = [*ssh_cmd.split(), '--', *notebook_cmd.split()]
+ssh_cmd = f'ssh -L {port}:localhost:{port} ssh://{args.host}'.split()
+jupyter_cmd = f'ssh-notebook-server --port={port} --log-level=WARN --no-browser'.split()
+jupyter_cmd.extend(jupyter_args)
+cmd = [*ssh_cmd, '--', *jupyter_cmd]
+
+jupyter_string = ["'{}'".format(arg) if ' ' in arg else arg for arg in jupyter_cmd]
 
 print(
     f"""
     Launching Jupyter Notebook at {args.host} on port {port} with command:
-        $ {ssh_cmd} -- {notebook_cmd}""",
+        $ {' '.join(ssh_cmd)} -- {' '.join(jupyter_string)}""",
     end = '\n\n'
 )
 
