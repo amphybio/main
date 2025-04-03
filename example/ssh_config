@@ -2,18 +2,23 @@
 # Thus, host-specific definitions should be at the beginning of the
 # configuration file, and defaults at the end.
 
-Host eve
+Host hb
     # Public static IP
     HostName 143.107.58.80
 
     # Local static IP
-    #HostName 172.16.10.6
+    #HostName 172.16.10.5
+
+Host eve
+    # Local static IP
+    HostName 172.16.10.6
+    ProxyJump hb
 
 Host antp
     # Local static IP
     HostName 172.16.10.7
-    ProxyJump eve
+    ProxyJump hb
 
 Host *
-    User fulano
+    User your-username
     Compression yes
